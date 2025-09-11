@@ -41,35 +41,52 @@ module "eks" {
     }
   }
 
-  eks_addons = {
-    kube_proxy = {
-      addon_name       = "kube-proxy"
-      addon_version    = "v1.32.0-eksbuild.1"
-      resolve_conflicts = "OVERWRITE"
-    }
-    coredns = {
-      addon_name       = "coredns"
-      addon_version    = "v1.12.0-eksbuild.1"
-      resolve_conflicts = "OVERWRITE"
-    }
-    vpc_cni = {
-      addon_name       = "vpc-cni"
-      addon_version    = "v1.14.0-eksbuild.1"
-      resolve_conflicts = "OVERWRITE"
-    }
-  }
-
-  # New IAM access entries
+  # IAM user access
   access_entries = [
     {
       name               = "eks-admin-access"
-      principal_arn      = var.iam_user_arn      # IAM User ARN
+      principal_arn      = var.iam_user_arn
       policy_associations = [
         {
-          policy_arn   = var.eks_policy_arn      # Example: EKSAdminPolicy ARN
-          access_scope = "cluster"               # scope can be "cluster" or "namespace"
+          policy_arn   = var.eks_policy_arn
+          access_scope = "cluster"
         }
       ]
     }
   ]
+}
+
+# kube-proxy
+resource "aws_eks_addon" "kube_proxy" {
+  cluster_name    = module.eks.cluster_name
+  addon_name      = "kube-proxy"
+  resolve_conflicts = "OVERWRITE"
+}
+
+# CoreDNS
+resource "aws_eks_addon" "coredns" {
+  cluster_name    = module.eks.cluster_name
+  addon_name      = "coredns"
+  resolve_conflicts = "OVERWRITE"
+}
+
+# VPC CNI
+resource "aws_eks_addon" "vpc_cni" {
+  cluster_name    = module.eks.cluster_name
+  addon_name      = "vpc-cni"
+  resolve_conflicts = "OVERWRITE"
+}
+
+# Pod identity agent (optional)
+resource "aws_eks_addon" "pod_identity_agent" {
+  cluster_name    = module.eks.cluster_name
+  addon_name      = "eks-pod-identity-agent"
+  resolve_conflicts = "OVERWRITE"
+}
+
+# Node monitoring agent (optional)
+resource "aws_eks_addon" "node_monitoring_agent" {
+  cluster_name    = module.eks.cluster_name
+  addon_name      = "eks-node-monitoring-agent"
+  resolve_conflicts = "OVERWRITE"
 }
