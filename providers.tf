@@ -46,5 +46,3 @@ provider "kubectl" {
     args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name]
   }
 }
-
-data "aws_ecrpublic_authorization_token" "token" {}
