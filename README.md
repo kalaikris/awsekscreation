@@ -6,7 +6,7 @@ React frontend + Node.js backend + MySQL.
 
 ### Frontend (React)
 ```bash
-cd src
+cd react
 npm install
 npm start
 ```
@@ -14,7 +14,7 @@ Runs on http://localhost:3000
 
 ### Backend (Node.js)
 ```bash
-cd server
+cd nodejs
 npm install
 npm start
 ```
@@ -42,7 +42,7 @@ CREATE TABLE tickets (
 );
 ```
 
-Update DB creds in server/server.js if needed:
+Update DB creds in nodejs/server.js if needed:
 ```js
 const db = mysql.createConnection({
   host: 'localhost',
