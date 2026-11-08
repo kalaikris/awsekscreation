@@ -43,8 +43,11 @@ variable "enabled_log_types" {
 }
 
 variable "encryption_config" {
-  type        = any
-  default     = null
+  type = object({
+    provider_key_arn = optional(string)
+    resources        = optional(list(string), ["secrets"])
+  })
+  default     = {}
   description = "KMS key configuration used for envelope encryption of Kubernetes secrets."
 }
 

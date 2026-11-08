@@ -12,6 +12,8 @@ locals {
   # Karpenter discovers subnets and security groups by this tag, and it must
   # match the cluster name for the controller to accept them.
   karpenter_discovery_tag = local.name
+
+  azs = ["us-east-1a", "us-east-1b", "us-east-1c"]
 }
 
 ################################################################################
@@ -24,7 +26,7 @@ module "vpc" {
   name = local.name
   cidr = "10.0.0.0/16"
 
-  azs             = ["us-east-1a", "us-east-1b", "us-east-1c"]
+  azs             = local.azs
   private_subnets = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
   public_subnets  = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
 
@@ -68,6 +70,21 @@ resource "aws_kms_alias" "eks" {
 }
 
 ################################################################################
+# Cluster add-ons
+#
+# The add-on module owns the IAM roles the VPC CNI and EBS CSI driver need,
+# so the EKS module consumes its configuration.
+################################################################################
+
+module "addons" {
+  source = "./modules/addons"
+
+  name = local.name
+
+  tags = local.tags
+}
+
+################################################################################
 # EKS Control Plane
 ################################################################################
 
@@ -93,20 +110,34 @@ module "eks" {
   enabled_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
 
   encryption_config = {
-    provider = {
-      key_arn = aws_kms_key.eks.arn
-    }
-    resources = ["secrets"]
+    provider_key_arn = aws_kms_key.eks.arn
+    resources        = ["secrets"]
   }
 
   # Add-on IAM uses EKS Pod Identity, which does not need an OIDC provider.
   enable_irsa = false
 
-  addons = local.addons
+  addons = module.addons.addons
 
   node_security_group_tags = {
     "karpenter.sh/discovery" = local.karpenter_discovery_tag
   }
+
+  tags = local.tags
+}
+
+################################################################################
+# Karpenter
+#
+# Karpenter provisions the worker nodes, so it must be installed after the
+# cluster and its add-ons (VPC CNI in particular) are ready.
+################################################################################
+
+module "karpenter" {
+  source = "./modules/karpenter"
+
+  cluster_name     = module.eks.cluster_name
+  cluster_endpoint = module.eks.cluster_endpoint
 
   tags = local.tags
 }

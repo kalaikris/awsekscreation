@@ -1,16 +1,36 @@
+################################################################################
+# Karpenter IAM, interruption queue and node role
+#
+# The eks module's karpenter submodule creates the controller IAM role, the
+# Pod Identity association, the node IAM role with its access entry, and the
+# SQS interruption queue.
+################################################################################
+
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-  version = "~> 20.0"
+  version = "~> 21.0"
 
   cluster_name = var.cluster_name
 
-  enable_v1_permissions = var.enable_v1_permissions
+  # The controller reaches the API server through the node role's access
+  # entry, so the node role needs the CNI policy to join the cluster.
+  create_access_entry = true
+  access_entry_type  = "EC2_LINUX"
 
-  enable_pod_identity             = var.enable_pod_identity
-  create_pod_identity_association = var.create_pod_identity_association
+  create_pod_identity_association = true
+  namespace                       = var.namespace
+  service_account                 = var.name
 
   node_iam_role_additional_policies = var.node_iam_role_additional_policies
+
+  tags = var.tags
 }
+
+################################################################################
+# Karpenter controller
+################################################################################
+
+data "aws_ecrpublic_authorization_token" "token" {}
 
 resource "helm_release" "karpenter" {
   namespace        = var.namespace
@@ -23,6 +43,8 @@ resource "helm_release" "karpenter" {
   chart               = var.chart
   version             = var.chart_version
 
+  wait = true
+
   values = [
     <<-EOT
     serviceAccount:
@@ -32,21 +54,32 @@ resource "helm_release" "karpenter" {
       clusterName: ${var.cluster_name}
       clusterEndpoint: ${var.cluster_endpoint}
       interruptionQueue: ${module.karpenter.queue_name}
+      eksControlPlane: true
     EOT
   ]
 
-  depends_on = [var.eks_dependency]
+  depends_on = [module.karpenter]
 }
+
+################################################################################
+# EC2NodeClass
+#
+# Nodes land in the public subnets and get a public IP so they can reach the
+# AWS APIs and the internet without a NAT gateway.
+################################################################################
 
 resource "kubectl_manifest" "karpenter_node_class" {
   yaml_body = <<-YAML
-    apiVersion: karpenter.k8s.aws/v1beta1
+    apiVersion: karpenter.k8s.aws/v1
     kind: EC2NodeClass
     metadata:
       name: default
     spec:
       amiFamily: AL2023
+      amiSelectorTerms:
+        - alias: al2023@latest
       role: ${module.karpenter.node_iam_role_name}
+      associatePublicIPAddress: true
       subnetSelectorTerms:
         - tags:
             karpenter.sh/discovery: ${var.cluster_name}
@@ -60,9 +93,13 @@ resource "kubectl_manifest" "karpenter_node_class" {
   depends_on = [helm_release.karpenter]
 }
 
+################################################################################
+# NodePool
+################################################################################
+
 resource "kubectl_manifest" "karpenter_node_pool" {
   yaml_body = <<-YAML
-    apiVersion: karpenter.sh/v1beta1
+    apiVersion: karpenter.sh/v1
     kind: NodePool
     metadata:
       name: default
@@ -70,6 +107,8 @@ resource "kubectl_manifest" "karpenter_node_pool" {
       template:
         spec:
           nodeClassRef:
+            group: karpenter.k8s.aws
+            kind: EC2NodeClass
             name: default
           requirements:
             - key: "karpenter.k8s.aws/instance-category"
@@ -93,5 +132,3 @@ resource "kubectl_manifest" "karpenter_node_pool" {
 
   depends_on = [kubectl_manifest.karpenter_node_class]
 }
-
-data "aws_ecrpublic_authorization_token" "token" {}

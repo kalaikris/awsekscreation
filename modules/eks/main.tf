@@ -16,7 +16,6 @@ module "eks" {
   enabled_log_types = var.enabled_log_types
 
   encryption_config = var.encryption_config
-
   enable_irsa = var.enable_irsa
 
   addons = var.addons

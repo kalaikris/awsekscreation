@@ -111,7 +111,6 @@ locals {
     aws-ebs-csi-driver = {
       configuration_values = jsonencode({
         controller = {
-          expandPersistentVolumes = true
           serviceAccount = {
             annotations = {
               "eks.amazonaws.com/ebs-csi-driver" = "true"
