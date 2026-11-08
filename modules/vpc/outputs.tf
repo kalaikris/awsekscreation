@@ -1,11 +1,24 @@
 output "vpc_id" {
-  value = module.vpc.vpc_id
+  description = "ID of the VPC."
+  value       = module.vpc.vpc_id
+}
+
+output "vpc_cidr" {
+  description = "IPv4 CIDR block of the VPC."
+  value       = module.vpc.vpc_cidr_block
 }
 
 output "private_subnets" {
-  value = module.vpc.private_subnets
+  description = "IDs of the private subnets."
+  value       = module.vpc.private_subnets
 }
 
 output "public_subnets" {
-  value = module.vpc.public_subnets
+  description = "IDs of the public subnets."
+  value       = module.vpc.public_subnets
+}
+
+output "nat_gateway_public_ips" {
+  description = "Public IPs of the NAT gateways."
+  value       = module.vpc.nat_public_ips
 }

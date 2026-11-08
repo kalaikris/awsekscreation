@@ -1,24 +1,9 @@
-terraform {
-  required_version = ">= 1.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-    helm = {
-      source  = "hashicorp/helm"
-      version = "~> 2.12"
-    }
-    kubectl = {
-      source  = "gavinbunney/kubectl"
-      version = "~> 1.14"
-    }
-  }
-}
-
 provider "aws" {
-  region = "us-east-1"
+  region = local.region
+
+  default_tags {
+    tags = local.tags
+  }
 }
 
 provider "helm" {
@@ -35,7 +20,7 @@ provider "helm" {
 }
 
 provider "kubectl" {
-  apply_retry_count      = 5
+  apply_retry_count      = 10
   host                   = module.eks.cluster_endpoint
   cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
   load_config_file       = false
